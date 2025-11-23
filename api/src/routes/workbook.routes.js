@@ -1,9 +1,10 @@
 const express = require('express');
 const multer = require('multer');
 const workbookController = require('../controllers/workbook.controller');
-const { authenticate } = require('../middlewares/auth.middleware');
-const validate = require('../middlewares/validate.middleware');
-const Joi = require('joi');
+const { authenticate, optionalAuth } = require('../middlewares/auth.middleware');
+const { uploadLimiter } = require('../middlewares/rateLimit.middleware');
+const { body } = require('express-validator');
+const { validate } = require('../middlewares/validate.middleware');
 
 const router = express.Router();
 
@@ -20,40 +21,44 @@ const upload = multer({
   },
 });
 
-// Validation schemas
-const createWorkbookSchema = Joi.object({
-  title: Joi.string().min(3).max(200).required(),
-  niche: Joi.string().max(100),
-  description: Joi.string().max(2000),
-  priceCents: Joi.number().integer().min(0).required(),
-  currency: Joi.string().length(3).default('eur'),
-});
+// Validation rules
+const createWorkbookValidation = [
+  body('title').trim().isLength({ min: 3, max: 200 }),
+  body('description').trim().notEmpty(),
+  body('content').trim().notEmpty(),
+  body('price').isFloat({ min: 0 }),
+  body('category').optional().trim(),
+  body('gradeLevel').optional().trim(),
+  body('subject').optional().trim(),
+  body('language').optional().isLength({ min: 2, max: 2 }),
+];
 
-const updateWorkbookSchema = Joi.object({
-  title: Joi.string().min(3).max(200),
-  niche: Joi.string().max(100),
-  description: Joi.string().max(2000),
-  priceCents: Joi.number().integer().min(0),
-  pages: Joi.object(),
-});
+const updateWorkbookValidation = [
+  body('title').optional().trim().isLength({ min: 3, max: 200 }),
+  body('description').optional().trim(),
+  body('content').optional().trim(),
+  body('price').optional().isFloat({ min: 0 }),
+  body('category').optional().trim(),
+  body('gradeLevel').optional().trim(),
+  body('subject').optional().trim(),
+  body('language').optional().isLength({ min: 2, max: 2 }),
+];
 
-const generateContentSchema = Joi.object({
-  prompt: Joi.string().min(10).max(500).required(),
-  pages: Joi.number().integer().min(1).max(50).default(10),
-});
+const generateContentValidation = [
+  body('prompt').trim().isLength({ min: 10, max: 500 }),
+  body('type').optional().isIn(['description', 'exercises', 'content']),
+];
 
 // Public routes
-router.get('/', workbookController.list);
-router.get('/:id', workbookController.getById);
-router.get('/slug/:slug', workbookController.getBySlug);
+router.get('/', optionalAuth, workbookController.getAllWorkbooks);
+router.get('/:slug', optionalAuth, workbookController.getWorkbookBySlug);
 
 // Protected routes
-router.post('/', authenticate, validate(createWorkbookSchema), workbookController.create);
-router.patch('/:id', authenticate, validate(updateWorkbookSchema), workbookController.update);
-router.delete('/:id', authenticate, workbookController.remove);
-router.post('/:id/generate-content', authenticate, validate(generateContentSchema), workbookController.generateContent);
-router.post('/:id/upload-cover', authenticate, upload.single('cover'), workbookController.uploadCover);
-router.post('/:id/publish', authenticate, workbookController.publish);
-router.post('/:id/unpublish', authenticate, workbookController.unpublish);
+router.post('/', authenticate, validate(createWorkbookValidation), workbookController.createWorkbook);
+router.put('/:id', authenticate, validate(updateWorkbookValidation), workbookController.updateWorkbook);
+router.delete('/:id', authenticate, workbookController.deleteWorkbook);
+router.post('/:id/publish', authenticate, workbookController.publishWorkbook);
+router.post('/:id/cover', authenticate, uploadLimiter, upload.single('cover'), workbookController.uploadCoverImage);
+router.post('/generate', authenticate, validate(generateContentValidation), workbookController.generateAIContent);
 
 module.exports = router;

@@ -1,22 +1,24 @@
 const express = require('express');
 const orderController = require('../controllers/order.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
-const validate = require('../middlewares/validate.middleware');
-const Joi = require('joi');
+const { body } = require('express-validator');
+const { validate } = require('../middlewares/validate.middleware');
 
 const router = express.Router();
 
-// Validation schemas
-const createCheckoutSchema = Joi.object({
-  workbookId: Joi.string().uuid().required(),
-});
+// Validation rules
+const createCheckoutValidation = [
+  body('workbookIds').isArray({ min: 1 }),
+  body('workbookIds.*').isUUID(),
+];
 
-// Stripe webhook (public, no auth)
+// Stripe webhook (public, no auth, raw body needed)
 router.post('/webhook', express.raw({ type: 'application/json' }), orderController.handleWebhook);
 
 // Protected routes
-router.post('/create-checkout', authenticate, validate(createCheckoutSchema), orderController.createCheckout);
-router.get('/:id', authenticate, orderController.getOrder);
-router.get('/:id/download', authenticate, orderController.getDownloadLink);
+router.post('/checkout', authenticate, validate(createCheckoutValidation), orderController.createCheckoutSession);
+router.get('/', authenticate, orderController.getUserOrders);
+router.get('/:id', authenticate, orderController.getOrderById);
+router.get('/:orderId/download/:workbookId', authenticate, orderController.generateDownloadLink);
 
 module.exports = router;
