@@ -1,13 +1,9 @@
 import apiClient from './client';
 import { AuthResponse, User, ApiResponse } from '../types';
 
-export const authApi = {
-  async register(email: string, password: string, name?: string): Promise<AuthResponse> {
-    const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/register', {
-      email,
-      password,
-      name,
-    });
+export const authAPI = {
+  async register(data: { email: string; password: string; name: string; role?: string }): Promise<AuthResponse> {
+    const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/register', data);
     return response.data.data;
   },
 
@@ -36,7 +32,10 @@ export const authApi = {
     await apiClient.post('/auth/forgot-password', { email });
   },
 
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    await apiClient.post('/auth/reset-password', { token, newPassword });
+  async resetPassword(token: string, password: string): Promise<void> {
+    await apiClient.post('/auth/reset-password', { token, password });
   },
 };
+
+// For backward compatibility
+export const authApi = authAPI;
