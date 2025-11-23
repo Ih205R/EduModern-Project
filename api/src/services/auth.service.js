@@ -1,10 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('../config/db');
 const { hashPassword, comparePassword, generateVerificationToken, generateResetToken } = require('../utils/crypto');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 const emailService = require('./email.service');
 const logger = require('../utils/logger');
-
-const prisma = new PrismaClient();
 
 /**
  * Register a new user

@@ -1,8 +1,6 @@
 const { verifyAccessToken } = require('../utils/jwt');
 const { unauthorizedResponse, forbiddenResponse } = require('../utils/response');
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const { prisma } = require('../config/db');
 
 /**
  * Authenticate user via JWT token
