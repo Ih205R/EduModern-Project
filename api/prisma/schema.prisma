@@ -1,0 +1,108 @@
+// Prisma schema for EduModern
+// Database: PostgreSQL (Supabase)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          Role      @default(STUDENT)
+  isVerified    Boolean   @default(false)
+  verificationToken String?
+  resetToken    String?
+  resetTokenExpires DateTime?
+  refreshToken  String?
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  workbooks     Workbook[]
+  orders        Order[]
+  
+  @@map("users")
+}
+
+// Workbook model
+model Workbook {
+  id            String    @id @default(uuid())
+  title         String
+  slug          String    @unique
+  description   String    @db.Text
+  content       Json?
+  coverImage    String?
+  pdfUrl        String?
+  price         Decimal   @db.Decimal(10, 2)
+  category      String
+  grade         String?
+  subject       String?
+  isPublished   Boolean   @default(false)
+  isPdfGenerated Boolean  @default(false)
+  viewCount     Int       @default(0)
+  purchaseCount Int       @default(0)
+  authorId      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  orders        Order[]
+  
+  @@index([slug])
+  @@index([authorId])
+  @@index([isPublished])
+  @@map("workbooks")
+}
+
+// Order model
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  userId          String
+  workbookId      String
+  amount          Decimal     @db.Decimal(10, 2)
+  currency        String      @default("eur")
+  status          OrderStatus @default(PENDING)
+  stripeSessionId String?
+  stripePaymentIntent String?
+  downloadUrl     String?
+  downloadExpiry  DateTime?
+  downloadCount   Int         @default(0)
+  maxDownloads    Int         @default(3)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workbook        Workbook    @relation(fields: [workbookId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([workbookId])
+  @@index([orderNumber])
+  @@index([status])
+  @@map("orders")
+}
+
+// Enums
+enum Role {
+  STUDENT
+  EDUCATOR
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
