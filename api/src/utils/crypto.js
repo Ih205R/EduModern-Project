@@ -1,71 +1,59 @@
 const crypto = require('crypto');
-const bcrypt = require('bcrypt');
-const env = require('../config/env');
 
 /**
- * Hash password using bcrypt
+ * Generate a random token
  */
-const hashPassword = async (password) => {
-  return await bcrypt.hash(password, env.BCRYPT_ROUNDS);
-};
-
-/**
- * Compare password with hash
- */
-const comparePassword = async (password, hash) => {
-  return await bcrypt.compare(password, hash);
-};
-
-/**
- * Generate random token
- */
-const generateToken = (length = 32) => {
+function generateToken(length = 32) {
   return crypto.randomBytes(length).toString('hex');
-};
+}
 
 /**
- * Generate secure random string
+ * Hash a string using SHA256
  */
-const generateRandomString = (length = 16) => {
-  return crypto
-    .randomBytes(Math.ceil(length / 2))
-    .toString('hex')
-    .slice(0, length);
-};
+function hashString(str) {
+  return crypto.createHash('sha256').update(str).digest('hex');
+}
 
 /**
- * Create hash of string
+ * Generate a secure random string
  */
-const createHash = (data, algorithm = 'sha256') => {
-  return crypto.createHash(algorithm).update(data).digest('hex');
-};
+function generateSecureString(length = 16) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  const randomBytes = crypto.randomBytes(length);
+  
+  for (let i = 0; i < length; i++) {
+    result += chars[randomBytes[i] % chars.length];
+  }
+  
+  return result;
+}
 
 /**
- * Generate verification token with expiry
+ * Create a URL-safe slug from a string
  */
-const generateVerificationToken = () => {
-  return {
-    token: generateToken(),
-    expiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-  };
-};
+function createSlug(str) {
+  return str
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 /**
- * Generate password reset token with expiry
+ * Generate unique order number
  */
-const generateResetToken = () => {
-  return {
-    token: generateToken(),
-    expiry: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
-  };
-};
+function generateOrderNumber() {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `EM-${timestamp}-${random}`;
+}
 
 module.exports = {
-  hashPassword,
-  comparePassword,
   generateToken,
-  generateRandomString,
-  createHash,
-  generateVerificationToken,
-  generateResetToken,
+  hashString,
+  generateSecureString,
+  createSlug,
+  generateOrderNumber,
 };

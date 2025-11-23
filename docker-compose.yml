@@ -23,7 +23,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: edumodern-redis
-    command: redis-server --appendonly yes
     ports:
       - "6379:6379"
     volumes:
@@ -34,67 +33,51 @@ services:
       timeout: 5s
       retries: 5
 
-  # Backend API
+  # API Service
   api:
     build:
       context: ./api
       dockerfile: Dockerfile
     container_name: edumodern-api
-    environment:
-      - NODE_ENV=production
-      - PORT=5000
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/edumodern
-      - REDIS_URL=redis://redis:6379
-      - FRONTEND_URL=http://localhost:3000
-    env_file:
-      - ./api/.env
     ports:
       - "5000:5000"
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/edumodern
+      REDIS_URL: redis://redis:6379
+      FRONTEND_URL: http://localhost:3000
+      # Add other environment variables from .env
+    volumes:
+      - ./api:/app
+      - /app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./api/logs:/app/logs
-      - ./api/uploads:/app/uploads
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    command: npm run dev
 
-  # Frontend Next.js
+  # Frontend Service
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: edumodern-frontend
-    environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
-    env_file:
-      - ./frontend/.env.local
     ports:
       - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:5000/api/v1
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # Add other environment variables from .env.local
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     depends_on:
       - api
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    command: npm run dev
 
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
-
-networks:
-  default:
-    name: edumodern-network

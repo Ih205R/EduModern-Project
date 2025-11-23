@@ -1,14 +1,27 @@
 # Dependencies
 node_modules/
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+.nyc_output
+
+# Production
+build/
+dist/
+out/
+
+# Next.js
+.next/
+*.tsbuildinfo
 
 # Environment variables
 .env
 .env.local
-.env.*.local
-*.env
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Logs
 logs/
@@ -16,16 +29,13 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
 
-# Testing
-coverage/
-.nyc_output/
-
-# Build outputs
-dist/
-build/
-.next/
-out/
+# OS
+.DS_Store
+*.pem
+Thumbs.db
 
 # IDE
 .vscode/
@@ -33,21 +43,12 @@ out/
 *.swp
 *.swo
 *~
-.DS_Store
 
-# Temporary files
-tmp/
+# Prisma
+prisma/migrations/*/migration.sql
+
+# Misc
+.cache
 temp/
-*.tmp
-
-# Uploads and generated files
-uploads/
+tmp/
 files.zip
-
-# Docker
-*.pid
-*.seed
-*.pid.lock
-
-# OS
-Thumbs.db

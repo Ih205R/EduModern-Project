@@ -1,206 +1,253 @@
-# EduModern API
+# EduModern API Documentation
 
-Backend API for the EduModern educational digital workbook platform.
+RESTful API for the EduModern educational workbook platform.
 
 ## Tech Stack
 
-- **Runtime**: Node.js 18+
-- **Framework**: Express.js
-- **Database**: PostgreSQL (Supabase)
-- **ORM**: Prisma
-- **Authentication**: JWT
-- **Payments**: Stripe
-- **Storage**: Supabase Storage
-- **AI**: OpenAI GPT-4
-- **Job Queue**: Bull (Redis)
-- **Email**: Nodemailer
+- **Runtime:** Node.js 18+
+- **Framework:** Express.js
+- **Database:** PostgreSQL (Supabase)
+- **ORM:** Prisma
+- **Authentication:** JWT
+- **Payment:** Stripe
+- **Storage:** Supabase Storage
+- **AI:** OpenAI
+- **Queue:** Bull + Redis
 
-## Features
+## Setup
 
-- ✅ User authentication (register, login, JWT tokens)
-- ✅ Email verification and password reset
-- ✅ Workbook CRUD operations
-- ✅ AI-powered content generation
-- ✅ PDF generation with background jobs
-- ✅ Stripe payment integration
-- ✅ Secure file uploads to Supabase Storage
-- ✅ Order management and download links
-- ✅ Rate limiting and security middleware
-
-## Prerequisites
-
-- Node.js >= 18.0.0
-- npm >= 9.0.0
-- PostgreSQL (or Supabase account)
-- Redis (for job queue)
-- Stripe account
-- OpenAI API key
-- Email service (SendGrid, AWS SES, or SMTP)
-
-## Installation
-
-1. Install dependencies:
+### Install Dependencies
 ```bash
 npm install
 ```
 
-2. Set up environment variables:
-```bash
-cp .env.example .env
+### Environment Variables
+Copy `.env.example` to `.env` and update the values:
+
+```env
+DATABASE_URL=postgresql://...
+SUPABASE_URL=https://...
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+JWT_SECRET=your_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+STRIPE_SECRET_KEY=sk_test_...
+OPENAI_API_KEY=sk-...
+REDIS_URL=redis://localhost:6379
 ```
 
-Edit `.env` with your credentials:
-- Supabase database URL and keys
-- Stripe keys (already configured)
-- OpenAI API key
-- Email service credentials
-- Redis URL
-
-3. Generate Prisma client:
+### Database Setup
 ```bash
-npm run prisma:generate
+npx prisma generate
+npx prisma migrate dev
+npx prisma studio  # Open Prisma Studio
 ```
 
-4. Run database migrations:
+### Development
 ```bash
-npm run prisma:migrate
+npm run dev  # Start with nodemon
 ```
 
-5. (Optional) Seed database:
-```bash
-npm run prisma:seed
-```
-
-## Development
-
-Start development server with auto-reload:
-```bash
-npm run dev
-```
-
-The API will be available at `http://localhost:5000`
-
-## Production
-
-Start production server:
+### Production
 ```bash
 npm start
 ```
 
-## Scripts
-
-- `npm run dev` - Start development server with nodemon
-- `npm start` - Start production server
-- `npm test` - Run tests with coverage
-- `npm run test:watch` - Run tests in watch mode
-- `npm run prisma:generate` - Generate Prisma client
-- `npm run prisma:migrate` - Run database migrations
-- `npm run prisma:studio` - Open Prisma Studio (database GUI)
-- `npm run prisma:seed` - Seed database with sample data
-- `npm run lint` - Lint code with ESLint
-- `npm run format` - Format code with Prettier
-
 ## API Endpoints
 
-### Authentication
-- `POST /api/v1/auth/register` - Register new user
-- `POST /api/v1/auth/login` - Login user
-- `POST /api/v1/auth/refresh` - Refresh access token
-- `POST /api/v1/auth/logout` - Logout user
-- `GET /api/v1/auth/verify-email?token=xxx` - Verify email
-- `POST /api/v1/auth/forgot-password` - Request password reset
-- `POST /api/v1/auth/reset-password` - Reset password
-- `POST /api/v1/auth/change-password` - Change password (authenticated)
-- `GET /api/v1/auth/me` - Get current user
+### Authentication (`/api/v1/auth`)
 
-### Users
-- `GET /api/v1/users/profile` - Get user profile
-- `PUT /api/v1/users/profile` - Update user profile
-- `DELETE /api/v1/users/account` - Delete user account
-- `GET /api/v1/users/workbooks` - Get user's workbooks
-- `GET /api/v1/users/purchases` - Get user's purchases
-- `POST /api/v1/users/avatar` - Upload avatar
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/register` | Register new user | ❌ |
+| POST | `/login` | Login user | ❌ |
+| POST | `/verify-email` | Verify email | ❌ |
+| POST | `/forgot-password` | Request password reset | ❌ |
+| POST | `/reset-password` | Reset password | ❌ |
+| POST | `/refresh-token` | Refresh access token | ❌ |
+| POST | `/logout` | Logout user | ✅ |
+| GET | `/me` | Get current user | ✅ |
 
-### Workbooks
-- `GET /api/v1/workbooks` - Get all workbooks (public)
-- `GET /api/v1/workbooks/:slug` - Get workbook by slug
-- `POST /api/v1/workbooks` - Create workbook (educator)
-- `PUT /api/v1/workbooks/:id` - Update workbook (owner)
-- `DELETE /api/v1/workbooks/:id` - Delete workbook (owner)
-- `POST /api/v1/workbooks/:id/publish` - Publish workbook
-- `POST /api/v1/workbooks/:id/cover` - Upload cover image
-- `POST /api/v1/workbooks/generate` - Generate AI content
+### Users (`/api/v1/users`)
 
-### Orders
-- `POST /api/v1/orders/checkout` - Create checkout session
-- `POST /api/v1/orders/webhook` - Stripe webhook
-- `GET /api/v1/orders` - Get user orders
-- `GET /api/v1/orders/:id` - Get order by ID
-- `GET /api/v1/orders/:orderId/download/:workbookId` - Generate download link
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/profile` | Get user profile | ✅ |
+| PUT | `/profile` | Update profile | ✅ |
+| PUT | `/password` | Change password | ✅ |
+| POST | `/avatar` | Upload avatar | ✅ |
+| GET | `/workbooks` | Get user's workbooks | ✅ |
+| GET | `/orders` | Get user's orders | ✅ |
+| DELETE | `/account` | Delete account | ✅ |
 
-### PDF Generation
-- `POST /api/v1/pdf/:workbookId` - Generate PDF
-- `GET /api/v1/pdf/status/:jobId` - Get PDF generation status
+### Workbooks (`/api/v1/workbooks`)
 
-## Database Schema
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/` | List all workbooks | ❌ |
+| GET | `/slug/:slug` | Get workbook by slug | Optional |
+| GET | `/:id` | Get workbook by ID | ✅ |
+| POST | `/` | Create workbook | ✅ |
+| PUT | `/:id` | Update workbook | ✅ |
+| DELETE | `/:id` | Delete workbook | ✅ |
+| POST | `/:id/cover` | Upload cover image | ✅ |
+| POST | `/generate-content` | AI content generation | ✅ |
+| POST | `/generate-titles` | AI title suggestions | ✅ |
 
-### User
-- Authentication and profile information
-- Roles: STUDENT, EDUCATOR, ADMIN
+### Orders (`/api/v1/orders`)
 
-### Workbook
-- Title, description, content
-- Pricing and metadata
-- Status: DRAFT, PUBLISHED, ARCHIVED
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/checkout` | Create checkout session | ✅ |
+| POST | `/webhook` | Stripe webhook handler | ❌ |
+| GET | `/:id` | Get order by ID | ✅ |
+| GET | `/session/:sessionId` | Get order by session | ✅ |
+| GET | `/:id/download` | Get download link | ✅ |
 
-### Order
-- Payment information
-- Status: PENDING, PROCESSING, COMPLETED, CANCELLED, REFUNDED
+### PDF (`/api/v1/pdf`)
 
-### OrderItem
-- Individual workbooks in an order
-- Download tracking
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/generate` | Queue PDF generation | ✅ |
+| GET | `/status/:workbookId` | Check PDF status | ✅ |
 
-### PDFJob
-- Background PDF generation tracking
+## Request/Response Examples
 
-## Security
+### Register User
+```bash
+POST /api/v1/auth/register
+Content-Type: application/json
 
-- JWT tokens with refresh token rotation
-- Password hashing with bcrypt
-- Rate limiting on all endpoints
-- CORS configuration
-- Helmet security headers
-- Input validation with express-validator
-- SQL injection protection via Prisma
+{
+  "email": "user@example.com",
+  "password": "SecurePass123",
+  "name": "John Doe",
+  "role": "EDUCATOR"
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "message": "Registration successful",
+  "data": {
+    "user": {
+      "id": "uuid",
+      "email": "user@example.com",
+      "name": "John Doe",
+      "role": "EDUCATOR"
+    }
+  }
+}
+```
+
+### Login
+```bash
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "SecurePass123"
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "user": { ... },
+    "accessToken": "eyJhbG...",
+    "refreshToken": "eyJhbG..."
+  }
+}
+```
+
+### Create Workbook
+```bash
+POST /api/v1/workbooks
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "title": "Introduction to Calculus",
+  "description": "Learn calculus fundamentals",
+  "price": 29.99,
+  "category": "Mathematics",
+  "grade": "12",
+  "subject": "Calculus"
+}
+```
 
 ## Error Handling
 
-All errors follow a consistent format:
+All errors follow this format:
 ```json
 {
   "success": false,
   "message": "Error message",
-  "error": "Detailed error (development only)"
+  "errors": [
+    {
+      "field": "email",
+      "message": "Email is required"
+    }
+  ]
 }
 ```
 
-## Docker
+## Status Codes
 
-Build image:
-```bash
-docker build -t edumodern-api .
+- `200` - Success
+- `201` - Created
+- `400` - Bad Request
+- `401` - Unauthorized
+- `403` - Forbidden
+- `404` - Not Found
+- `409` - Conflict
+- `422` - Validation Error
+- `500` - Internal Server Error
+
+## Authentication
+
+JWT tokens are used for authentication. Include the access token in the `Authorization` header:
+
+```
+Authorization: Bearer <access_token>
 ```
 
-Run container:
+Tokens expire after 15 minutes. Use the refresh token endpoint to get a new access token.
+
+## Rate Limiting
+
+- General API: 100 requests per 15 minutes
+- Auth routes: 5 requests per 15 minutes
+- Upload routes: 20 requests per hour
+- Payment routes: 10 requests per hour
+
+## Database Schema
+
+See `prisma/schema.prisma` for the complete database schema.
+
+### Main Models
+
+- **User** - User accounts
+- **Workbook** - Educational workbooks
+- **Order** - Purchase orders
+
+## Testing
+
 ```bash
-docker run -p 5000:5000 --env-file .env edumodern-api
+npm test                # Run tests
+npm run test:watch      # Watch mode
+npm run test:coverage   # Coverage report
 ```
+
+## Deployment
+
+See [DEPLOYMENT.md](../DEPLOYMENT.md) for production deployment instructions.
 
 ## License
 
 MIT
-
-## Support
-
-For issues or questions, please open an issue on GitHub.

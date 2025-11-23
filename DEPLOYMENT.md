@@ -1,310 +1,130 @@
-# EduModern Deployment Guide
+# 🚀 EduModern Deployment Guide
 
-This guide covers deploying EduModern to various platforms.
-
-## Table of Contents
-
-- [Docker Deployment](#docker-deployment)
-- [Vercel (Frontend)](#vercel-frontend)
-- [Railway (Backend)](#railway-backend)
-- [Render (Full Stack)](#render-full-stack)
-- [AWS Deployment](#aws-deployment)
-- [Environment Variables](#environment-variables)
-- [Database Setup](#database-setup)
-- [Post-Deployment](#post-deployment)
+Complete guide for deploying EduModern to production.
 
 ## Prerequisites
 
-Before deploying, ensure you have:
+- Supabase project
+- Stripe account (production keys)
+- OpenAI API key (optional)
+- Email service (SendGrid, AWS SES, or SMTP)
+- Domain name
+- SSL certificate (automatically provided by most hosting platforms)
 
-- ✅ Supabase project created
-- ✅ Stripe account with API keys
-- ✅ OpenAI API key
-- ✅ Email service configured (SendGrid, AWS SES, or SMTP)
-- ✅ Redis instance (Upstash, Redis Cloud, or self-hosted)
+## Environment Setup
 
-## Docker Deployment
+### 1. Supabase Configuration
 
-### Local Docker Deployment
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Get your credentials from Project Settings → API:
+   - Project URL
+   - Anon/Public key
+   - Service Role key
+3. Get database connection string from Database Settings
+4. Configure Storage buckets:
+   - `avatars` - Public bucket for user avatars
+   - `workbooks` - Public bucket for workbook covers
+   - `pdfs` - Private bucket for PDF files
 
-1. **Build and run with Docker Compose:**
+### 2. Stripe Configuration
+
+1. Get production keys from [dashboard.stripe.com](https://dashboard.stripe.com)
+2. Configure webhook endpoint:
+   - URL: `https://your-api-domain.com/api/v1/orders/webhook`
+   - Events: `checkout.session.completed`, `payment_intent.succeeded`, `payment_intent.payment_failed`
+3. Get webhook signing secret
+
+### 3. OpenAI Configuration
+
+1. Get API key from [platform.openai.com](https://platform.openai.com)
+2. Set usage limits to control costs
+3. Choose model (default: `gpt-4-turbo-preview`)
+
+### 4. Email Service
+
+#### SendGrid
+```env
+EMAIL_HOST=smtp.sendgrid.net
+EMAIL_PORT=587
+EMAIL_USER=apikey
+EMAIL_PASSWORD=your_sendgrid_api_key
+```
+
+#### AWS SES
+```env
+EMAIL_HOST=email-smtp.region.amazonaws.com
+EMAIL_PORT=587
+EMAIL_USER=your_smtp_username
+EMAIL_PASSWORD=your_smtp_password
+```
+
+## Deployment Options
+
+### Option 1: Docker on VPS (Recommended)
+
+#### Server Requirements
+- 2 CPU cores minimum
+- 4GB RAM minimum
+- 50GB storage minimum
+- Ubuntu 22.04 LTS or similar
+
+#### Setup Steps
+
+1. **Install Docker and Docker Compose**
 ```bash
-docker-compose up -d
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+sudo apt install docker-compose
 ```
 
-2. **Run database migrations:**
-```bash
-docker-compose exec api npm run prisma:migrate
-```
-
-3. **Access services:**
-- Frontend: http://localhost:3000
-- Backend: http://localhost:5000
-- PostgreSQL: localhost:5432
-- Redis: localhost:6379
-
-### Production Docker Deployment
-
-1. **Update environment variables in `.env` files**
-
-2. **Build production images:**
-```bash
-docker-compose -f docker-compose.yml build
-```
-
-3. **Deploy to your server:**
-```bash
-docker-compose -f docker-compose.yml up -d
-```
-
-4. **Set up reverse proxy (nginx):**
-```nginx
-server {
-    listen 80;
-    server_name yourdomain.com;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location /api {
-        proxy_pass http://localhost:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-5. **Enable SSL with Let's Encrypt:**
-```bash
-sudo certbot --nginx -d yourdomain.com
-```
-
-## Vercel (Frontend)
-
-### Deploy Frontend to Vercel
-
-1. **Install Vercel CLI:**
-```bash
-npm i -g vercel
-```
-
-2. **Navigate to frontend directory:**
-```bash
-cd frontend
-```
-
-3. **Deploy:**
-```bash
-vercel --prod
-```
-
-4. **Configure environment variables in Vercel dashboard:**
-- `NEXT_PUBLIC_API_URL`
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `NEXT_PUBLIC_APP_URL`
-
-5. **Custom domain (optional):**
-- Go to Vercel project settings
-- Add your custom domain
-- Update DNS records as instructed
-
-## Railway (Backend)
-
-### Deploy Backend to Railway
-
-1. **Install Railway CLI:**
-```bash
-npm i -g @railway/cli
-```
-
-2. **Login to Railway:**
-```bash
-railway login
-```
-
-3. **Initialize project:**
-```bash
-cd api
-railway init
-```
-
-4. **Add PostgreSQL:**
-```bash
-railway add postgresql
-```
-
-5. **Add Redis:**
-```bash
-railway add redis
-```
-
-6. **Set environment variables:**
-```bash
-railway variables set NODE_ENV=production
-railway variables set PORT=5000
-# Add all other variables from .env
-```
-
-7. **Deploy:**
-```bash
-railway up
-```
-
-8. **Run migrations:**
-```bash
-railway run npm run prisma:migrate
-```
-
-## Render (Full Stack)
-
-### Deploy to Render
-
-#### Backend Service
-
-1. **Create new Web Service on Render**
-2. **Connect GitHub repository**
-3. **Configure:**
-   - Name: `edumodern-api`
-   - Environment: `Node`
-   - Build Command: `cd api && npm install && npm run prisma:generate`
-   - Start Command: `cd api && npm start`
-   - Instance Type: Starter or higher
-
-4. **Add environment variables** (see Environment Variables section)
-
-5. **Add PostgreSQL database:**
-   - Create new PostgreSQL instance
-   - Copy connection string to `DATABASE_URL`
-
-6. **Add Redis:**
-   - Create new Redis instance
-   - Copy connection string to `REDIS_URL`
-
-#### Frontend Service
-
-1. **Create new Static Site on Render**
-2. **Connect GitHub repository**
-3. **Configure:**
-   - Name: `edumodern-frontend`
-   - Build Command: `cd frontend && npm install && npm run build`
-   - Publish Directory: `frontend/.next`
-
-4. **Add environment variables**
-
-## AWS Deployment
-
-### EC2 + RDS + ElastiCache
-
-1. **Set up infrastructure:**
-   - Launch EC2 instance (Ubuntu 22.04 LTS)
-   - Create RDS PostgreSQL instance
-   - Create ElastiCache Redis cluster
-   - Configure Security Groups
-
-2. **Install Docker on EC2:**
-```bash
-sudo apt update
-sudo apt install docker.io docker-compose -y
-sudo systemctl start docker
-sudo systemctl enable docker
-```
-
-3. **Clone repository:**
+2. **Clone Repository**
 ```bash
 git clone https://github.com/Ih205R/EduModern-Project.git
 cd EduModern-Project
 ```
 
-4. **Configure environment variables**
+3. **Configure Environment Variables**
 
-5. **Update docker-compose.yml** to use RDS and ElastiCache
-
-6. **Deploy:**
-```bash
-sudo docker-compose up -d
-```
-
-### AWS Elastic Beanstalk (Alternative)
-
-1. **Install EB CLI:**
-```bash
-pip install awsebcli
-```
-
-2. **Initialize:**
-```bash
-eb init -p node.js edumodern
-```
-
-3. **Create environment:**
-```bash
-eb create edumodern-prod
-```
-
-4. **Set environment variables:**
-```bash
-eb setenv NODE_ENV=production DATABASE_URL=...
-```
-
-5. **Deploy:**
-```bash
-eb deploy
-```
-
-## Environment Variables
-
-### Backend Environment Variables
-
-```bash
-# Application
+Create `api/.env`:
+```env
 NODE_ENV=production
 PORT=5000
 API_VERSION=v1
 
-# Supabase Database
+# Supabase (Production)
 DATABASE_URL=postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
-
-# Supabase
 SUPABASE_URL=https://[project-ref].supabase.co
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_ANON_KEY=your_production_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_production_service_key
 
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
-JWT_REFRESH_SECRET=your-super-secret-refresh-key-change-in-production
+# JWT (Generate new secrets!)
+JWT_SECRET=your_super_secret_production_jwt_key
+JWT_REFRESH_SECRET=your_super_secret_production_refresh_key
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 
-# Stripe
-STRIPE_SECRET_KEY=sk_test_51SWBzFEL42zCNFEU0voMYBcUoKLJAuLZmg4JcC2HusHcORcX2WAEWJXO2X8J9hy8rA25lgeHDvR4qDW4of9s8nGS00vbVa17Cl
-STRIPE_PUBLISHABLE_KEY=pk_test_51SWBzFEL42zCNFEUp50HI8EljXvr4NeXAMMcvzx6Atjetodvq79YHV47zxMATKIuDQ5Sg2kEp4HHOIzNj8B0gKT100pOXODelJ
-STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+# Stripe (Production keys)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_CURRENCY=eur
 
 # OpenAI
-OPENAI_API_KEY=sk-your-openai-api-key
+OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4-turbo-preview
 
 # Email
 EMAIL_HOST=smtp.sendgrid.net
 EMAIL_PORT=587
-EMAIL_SECURE=false
 EMAIL_USER=apikey
-EMAIL_PASSWORD=your_sendgrid_api_key
-EMAIL_FROM=noreply@edumodern.com
+EMAIL_PASSWORD=your_sendgrid_key
+EMAIL_FROM=noreply@yourdomain.com
 EMAIL_FROM_NAME=EduModern
 
 # Redis
-REDIS_URL=redis://[username]:[password]@[host]:[port]
+REDIS_URL=redis://redis:6379
 
-# Frontend
+# Frontend URL
 FRONTEND_URL=https://yourdomain.com
 
 # Security
@@ -316,148 +136,249 @@ RATE_LIMIT_MAX_REQUESTS=100
 LOG_LEVEL=info
 ```
 
-### Frontend Environment Variables
-
-```bash
+Create `frontend/.env.local`:
+```env
 NEXT_PUBLIC_API_URL=https://api.yourdomain.com/api/v1
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51SWBzFEL42zCNFEUp50HI8EljXvr4NeXAMMcvzx6Atjetodvq79YHV47zxMATKIuDQ5Sg2kEp4HHOIzNj8B0gKT100pOXODelJ
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
 ```
 
-## Database Setup
-
-### Supabase Setup
-
-1. **Create Supabase project:**
-   - Go to https://supabase.com
-   - Create new project
-   - Copy connection string
-
-2. **Enable required extensions:**
-```sql
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-```
-
-3. **Run migrations:**
+4. **Build and Start Services**
 ```bash
-npm run prisma:migrate
+docker-compose -f docker-compose.prod.yml up -d --build
 ```
 
-### Local PostgreSQL (Development)
-
+5. **Run Database Migrations**
 ```bash
-# Install PostgreSQL
-sudo apt install postgresql
-
-# Create database
-sudo -u postgres createdb edumodern
-
-# Update DATABASE_URL in .env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/edumodern
+docker-compose exec api npx prisma migrate deploy
 ```
 
-## Post-Deployment
+6. **Configure Nginx Reverse Proxy**
 
-### 1. Verify Deployment
+Create `/etc/nginx/sites-available/edumodern`:
+```nginx
+# API
+server {
+    listen 80;
+    server_name api.yourdomain.com;
 
-- ✅ Frontend loads correctly
-- ✅ API health check responds: `GET /health`
-- ✅ Database connections work
-- ✅ Redis connection works
-- ✅ Email sending works
-- ✅ Stripe webhooks configured
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
 
-### 2. Configure Stripe Webhooks
+# Frontend
+server {
+    listen 80;
+    server_name yourdomain.com www.yourdomain.com;
 
-1. Go to Stripe Dashboard → Developers → Webhooks
-2. Add endpoint: `https://api.yourdomain.com/api/v1/orders/webhook`
-3. Select events:
-   - `checkout.session.completed`
-   - `payment_intent.succeeded`
-   - `payment_intent.failed`
-4. Copy webhook secret to `STRIPE_WEBHOOK_SECRET`
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
 
-### 3. Set up Monitoring
+Enable site:
+```bash
+sudo ln -s /etc/nginx/sites-available/edumodern /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
 
-- Configure error tracking (Sentry)
-- Set up uptime monitoring
-- Configure log aggregation
-- Set up performance monitoring
+7. **Install SSL with Certbot**
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com -d api.yourdomain.com
+```
 
-### 4. Security Checklist
+### Option 2: Vercel (Frontend) + Railway/Render (Backend)
 
-- ✅ HTTPS enabled
-- ✅ Environment variables secured
-- ✅ Rate limiting configured
-- ✅ CORS properly configured
-- ✅ Database credentials rotated
-- ✅ API keys secured
-- ✅ Firewall rules configured
+#### Frontend on Vercel
 
-### 5. Backup Strategy
+1. Push code to GitHub
+2. Import project on [vercel.com](https://vercel.com)
+3. Configure:
+   - Root Directory: `frontend`
+   - Build Command: `npm run build`
+   - Output Directory: `.next`
+4. Add environment variables in Vercel dashboard
+5. Deploy
 
-1. **Database backups:**
-   - Supabase: Automatic daily backups
-   - Self-hosted: Configure pg_dump cron job
+#### Backend on Railway
 
-2. **File backups:**
-   - Supabase Storage: Automatic backups
-   - S3: Enable versioning
+1. Create new project on [railway.app](https://railway.app)
+2. Add PostgreSQL database (or link Supabase)
+3. Add Redis service
+4. Deploy from GitHub:
+   - Root Directory: `api`
+   - Start Command: `npm start`
+5. Add environment variables
+6. Run migrations: `npx prisma migrate deploy`
 
-### 6. Performance Optimization
+### Option 3: AWS (Complete)
 
-- Enable CDN for static assets
-- Configure caching headers
-- Optimize images
-- Enable compression
-- Use connection pooling
+#### Architecture
+- EC2 for API (or ECS with Docker)
+- S3 for static assets
+- RDS for PostgreSQL (or Supabase)
+- ElastiCache for Redis
+- CloudFront for CDN
+- Route 53 for DNS
+- ALB for load balancing
 
-## Troubleshooting
+See AWS deployment guide for detailed steps.
 
-### Common Issues
+## Post-Deployment Checklist
 
-**Database connection fails:**
-- Check DATABASE_URL format
-- Verify network connectivity
-- Check firewall rules
-- Verify database credentials
+### Security
+- [ ] Change all default passwords and secrets
+- [ ] Enable HTTPS everywhere
+- [ ] Configure CORS properly
+- [ ] Set up rate limiting
+- [ ] Enable security headers
+- [ ] Configure CSP headers
+- [ ] Set up WAF (Web Application Firewall)
 
-**Stripe webhooks not working:**
-- Verify webhook URL is accessible
-- Check webhook secret
-- Verify webhook events selected
-- Check API logs for errors
+### Monitoring
+- [ ] Set up error tracking (Sentry, Rollbar)
+- [ ] Configure logging (CloudWatch, Papertrail)
+- [ ] Set up uptime monitoring (UptimeRobot, Pingdom)
+- [ ] Configure performance monitoring (New Relic, Datadog)
+- [ ] Set up alerts for critical issues
 
-**Redis connection fails:**
-- Verify REDIS_URL format
-- Check Redis server status
-- Verify network connectivity
+### Database
+- [ ] Run migrations
+- [ ] Set up automated backups
+- [ ] Configure connection pooling
+- [ ] Optimize indexes
+- [ ] Set up read replicas (if needed)
 
-**Email sending fails:**
-- Verify SMTP credentials
-- Check email service status
-- Verify sender domain configuration
-- Check spam folder
+### Payments
+- [ ] Test Stripe webhook
+- [ ] Verify payment flow
+- [ ] Test refund process
+- [ ] Configure email receipts
+
+### Email
+- [ ] Verify email delivery
+- [ ] Test all email templates
+- [ ] Configure SPF, DKIM, DMARC records
+- [ ] Set up email monitoring
+
+### Performance
+- [ ] Enable Redis caching
+- [ ] Configure CDN
+- [ ] Optimize images
+- [ ] Enable gzip compression
+- [ ] Minimize bundle sizes
+
+### Testing
+- [ ] Test authentication flow
+- [ ] Test payment process
+- [ ] Test PDF generation
+- [ ] Test email delivery
+- [ ] Load testing
+- [ ] Security testing
+
+## Scaling Considerations
+
+### Horizontal Scaling
+- Use load balancer (Nginx, ALB)
+- Multiple API instances
+- Session store in Redis
+- Stateless architecture
+
+### Database Scaling
+- Connection pooling (PgBouncer)
+- Read replicas
+- Database indexes
+- Query optimization
+
+### Caching Strategy
+- Redis for sessions
+- Redis for frequently accessed data
+- CDN for static assets
+- Browser caching headers
+
+### Queue Management
+- Separate worker processes
+- Queue monitoring
+- Failed job handling
+- Job prioritization
+
+## Backup Strategy
+
+### Database Backups
+- Daily automated backups
+- Retention policy (30 days)
+- Test restore process monthly
+- Offsite backup storage
+
+### File Storage Backups
+- Supabase automatic backups
+- Manual backups of critical files
+- Version control for code
+
+### Configuration Backups
+- Environment variables
+- Nginx configurations
+- SSL certificates
+- DNS records
+
+## Disaster Recovery
+
+1. **Database Recovery**
+   - Restore from latest backup
+   - Run migrations if needed
+   - Verify data integrity
+
+2. **Application Recovery**
+   - Deploy from git repository
+   - Restore environment variables
+   - Restart services
+
+3. **DNS Failover**
+   - Secondary hosting ready
+   - DNS TTL set appropriately
+   - Automated health checks
+
+## Maintenance
+
+### Regular Updates
+- Weekly dependency updates
+- Monthly security patches
+- Quarterly major updates
+
+### Database Maintenance
+- Weekly vacuum and analyze
+- Monthly index optimization
+- Quarterly full maintenance
+
+### Monitoring Review
+- Daily error log review
+- Weekly performance review
+- Monthly security audit
 
 ## Support
 
 For deployment issues:
-- Open an issue on GitHub
-- Email: support@edumodern.com
+- Email: devops@edumodern.com
 - Documentation: https://docs.edumodern.com
+- GitHub Issues: https://github.com/Ih205R/EduModern-Project/issues
 
-## Updates
+## License
 
-To update deployed application:
-
-```bash
-git pull origin main
-docker-compose down
-docker-compose up -d --build
-docker-compose exec api npm run prisma:migrate
-```
-
----
-
-For more information, see the main [README.md](./README.md)
+MIT

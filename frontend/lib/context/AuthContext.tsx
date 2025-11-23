@@ -2,22 +2,22 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
-import { authApi } from '../api/auth';
+import { authAPI } from '../api/auth';
+import apiClient from '../api/client';
 
 interface AuthContextType {
   user: User | null;
-  loading: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  updateProfile: (data: { name?: string; email?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     checkAuth();
@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const token = localStorage.getItem('accessToken');
       if (token) {
-        const userData = await authApi.getMe();
+        const userData = await authAPI.getMe();
         setUser(userData);
       }
     } catch (error) {
@@ -35,19 +35,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }
 
   async function login(email: string, password: string) {
-    const data = await authApi.login(email, password);
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
-    setUser(data.user);
-  }
-
-  async function register(email: string, password: string, name?: string) {
-    const data = await authApi.register(email, password, name);
+    const data = await authAPI.login(email, password);
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     setUser(data.user);
@@ -57,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
-        await authApi.logout(refreshToken);
+        await authAPI.logout(refreshToken);
       }
     } catch (error) {
       console.error('Logout error:', error);
@@ -68,17 +61,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function refreshUser() {
-    try {
-      const userData = await authApi.getMe();
-      setUser(userData);
-    } catch (error) {
-      console.error('Failed to refresh user:', error);
-    }
+  async function updateProfile(data: { name?: string; email?: string }) {
+    const response = await apiClient.put('/users/profile', data);
+    setUser(response.data.data.user);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

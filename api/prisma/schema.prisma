@@ -1,4 +1,4 @@
-// Prisma Schema for EduModern Platform
+// Prisma schema for EduModern
 // Database: PostgreSQL (Supabase)
 
 generator client {
@@ -10,160 +10,99 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model with authentication
+// User model
 model User {
-  id                String    @id @default(uuid())
-  email             String    @unique
-  password          String
-  firstName         String?
-  lastName          String?
-  role              UserRole  @default(STUDENT)
-  emailVerified     Boolean   @default(false)
-  verificationToken String?   @unique
-  resetToken        String?   @unique
-  resetTokenExpiry  DateTime?
-  refreshToken      String?
-  avatarUrl         String?
-  bio               String?   @db.Text
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          Role      @default(STUDENT)
+  isVerified    Boolean   @default(false)
+  verificationToken String?
+  resetToken    String?
+  resetTokenExpires DateTime?
+  refreshToken  String?
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
   // Relations
-  workbooks         Workbook[]
-  orders            Order[]
+  workbooks     Workbook[]
+  orders        Order[]
   
-  @@index([email])
-  @@index([verificationToken])
-  @@index([resetToken])
   @@map("users")
 }
 
-enum UserRole {
+// Workbook model
+model Workbook {
+  id            String    @id @default(uuid())
+  title         String
+  slug          String    @unique
+  description   String    @db.Text
+  content       Json?
+  coverImage    String?
+  pdfUrl        String?
+  price         Decimal   @db.Decimal(10, 2)
+  category      String
+  grade         String?
+  subject       String?
+  isPublished   Boolean   @default(false)
+  isPdfGenerated Boolean  @default(false)
+  viewCount     Int       @default(0)
+  purchaseCount Int       @default(0)
+  authorId      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  orders        Order[]
+  
+  @@index([slug])
+  @@index([authorId])
+  @@index([isPublished])
+  @@map("workbooks")
+}
+
+// Order model
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  userId          String
+  workbookId      String
+  amount          Decimal     @db.Decimal(10, 2)
+  currency        String      @default("eur")
+  status          OrderStatus @default(PENDING)
+  stripeSessionId String?
+  stripePaymentIntent String?
+  downloadUrl     String?
+  downloadExpiry  DateTime?
+  downloadCount   Int         @default(0)
+  maxDownloads    Int         @default(3)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workbook        Workbook    @relation(fields: [workbookId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([workbookId])
+  @@index([orderNumber])
+  @@index([status])
+  @@map("orders")
+}
+
+// Enums
+enum Role {
   STUDENT
   EDUCATOR
   ADMIN
 }
 
-// Workbook model for educational content
-model Workbook {
-  id               String          @id @default(uuid())
-  title            String
-  slug             String          @unique
-  description      String          @db.Text
-  content          String          @db.Text
-  price            Decimal         @db.Decimal(10, 2)
-  currency         String          @default("eur")
-  coverImageUrl    String?
-  pdfUrl           String?
-  category         String?
-  tags             String[]
-  status           WorkbookStatus  @default(DRAFT)
-  publishedAt      DateTime?
-  featured         Boolean         @default(false)
-  totalPages       Int?
-  language         String          @default("en")
-  gradeLevel       String?
-  subject          String?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  
-  // Relations
-  authorId         String
-  author           User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  orders           OrderItem[]
-  
-  @@index([slug])
-  @@index([authorId])
-  @@index([status])
-  @@index([category])
-  @@index([featured])
-  @@map("workbooks")
-}
-
-enum WorkbookStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
-
-// Order model for purchases
-model Order {
-  id                String        @id @default(uuid())
-  orderNumber       String        @unique
-  totalAmount       Decimal       @db.Decimal(10, 2)
-  currency          String        @default("eur")
-  status            OrderStatus   @default(PENDING)
-  stripePaymentId   String?       @unique
-  stripeSessionId   String?       @unique
-  paymentMethod     String?
-  customerEmail     String
-  customerName      String?
-  billingAddress    Json?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  
-  // Relations
-  userId            String
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items             OrderItem[]
-  
-  @@index([orderNumber])
-  @@index([userId])
-  @@index([status])
-  @@index([stripeSessionId])
-  @@map("orders")
-}
-
 enum OrderStatus {
   PENDING
-  PROCESSING
-  COMPLETED
-  CANCELLED
-  REFUNDED
-}
-
-// OrderItem model for individual workbooks in an order
-model OrderItem {
-  id           String   @id @default(uuid())
-  quantity     Int      @default(1)
-  price        Decimal  @db.Decimal(10, 2)
-  downloadUrl  String?
-  downloadedAt DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  // Relations
-  orderId      String
-  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  workbookId   String
-  workbook     Workbook @relation(fields: [workbookId], references: [id], onDelete: Cascade)
-  
-  @@index([orderId])
-  @@index([workbookId])
-  @@map("order_items")
-}
-
-// PDFJob model for background PDF generation tracking
-model PDFJob {
-  id          String       @id @default(uuid())
-  workbookId  String
-  status      PDFJobStatus @default(PENDING)
-  progress    Int          @default(0)
-  resultUrl   String?
-  error       String?      @db.Text
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  
-  @@index([workbookId])
-  @@index([status])
-  @@map("pdf_jobs")
-}
-
-enum PDFJobStatus {
-  PENDING
-  PROCESSING
   COMPLETED
   FAILED
+  REFUNDED
 }

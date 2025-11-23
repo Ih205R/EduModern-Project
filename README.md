@@ -1,241 +1,296 @@
-# EduModern - Educational Digital Workbook Platform
+# 📚 EduModern - Premium Educational Digital Workbook Platform
 
-A complete, production-ready full-stack application for creating, publishing, and monetizing educational content.
+EduModern is a complete, production-ready full-stack platform that connects educators and students through high-quality digital workbooks. Educators can create, publish, and monetize their educational content, while students can discover and purchase learning materials.
 
-## 🎯 Overview
-
-EduModern is a premium educational platform where educators can create and publish high-quality workbooks, and students can discover and purchase learning materials. Built with modern technologies and best practices.
+![EduModern Platform](https://img.shields.io/badge/Status-Production%20Ready-success)
+![Node.js](https://img.shields.io/badge/Node.js-18+-green)
+![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-blue)
 
 ## ✨ Features
 
 ### For Educators
-- 📚 Create and manage digital workbooks
-- 🤖 AI-powered content generation (OpenAI GPT-4)
-- 💰 Monetize educational content
-- 📊 Dashboard with analytics
-- 🎨 Custom cover images
-- 📄 Automatic PDF generation
+- 📝 **Content Creation** - Rich editor for creating educational workbooks
+- 🤖 **AI-Powered** - OpenAI integration for content generation
+- 📄 **PDF Generation** - Automatic PDF creation from workbook content
+- 💰 **Monetization** - Secure payment processing with Stripe
+- 📊 **Analytics** - Track views, sales, and revenue
 
 ### For Students
-- 🔍 Browse and search workbooks
-- 💳 Secure payment with Stripe
-- ⬇️ Instant digital downloads
-- 📱 Responsive mobile experience
-- 🔐 Secure account management
+- 🔍 **Discovery** - Browse and search workbooks by category, grade, and subject
+- 💳 **Secure Checkout** - Safe payment processing
+- 📥 **Instant Access** - Download purchased workbooks immediately
+- 📚 **Library** - Access all purchased content from your dashboard
 
 ### Platform Features
-- 🔒 JWT-based authentication
-- 📧 Email verification and password reset
-- 🎨 Modern, accessible UI with smooth animations
-- 🌐 SEO optimized
-- 🐳 Docker ready
-- 🔄 Real-time updates
-- 🍪 GDPR-compliant cookie consent
+- 🔐 **Authentication** - Secure JWT-based auth with email verification
+- 🎨 **Beautiful Design** - Modern UI with smooth animations
+- 📱 **Responsive** - Optimized for all devices
+- 🚀 **Performance** - Fast loading with Next.js 15
+- 🔒 **Security** - Rate limiting, CORS, and Helmet protection
 
-## 🛠 Tech Stack
+## 🛠️ Tech Stack
 
 ### Backend
-- **Runtime**: Node.js 18+
-- **Framework**: Express.js
-- **Database**: PostgreSQL (Supabase)
-- **ORM**: Prisma
-- **Authentication**: JWT
-- **Payments**: Stripe
-- **Storage**: Supabase Storage
-- **AI**: OpenAI GPT-4
-- **Queue**: Bull (Redis)
-- **Email**: Nodemailer
+- **Runtime:** Node.js 18+
+- **Framework:** Express.js
+- **Database:** PostgreSQL (Supabase)
+- **ORM:** Prisma
+- **Authentication:** JWT + bcrypt
+- **Payments:** Stripe
+- **Storage:** Supabase Storage
+- **AI:** OpenAI API
+- **Queue:** Bull + Redis
+- **Email:** Nodemailer
 
 ### Frontend
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **State**: React Context
-- **HTTP**: Axios
-- **UI Components**: Radix UI
+- **Framework:** Next.js 15 (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **State:** React Context + Zustand
+- **HTTP:** Axios
+- **UI Components:** Radix UI
 
 ### Infrastructure
-- **Containerization**: Docker & Docker Compose
-- **Database**: Supabase
-- **Cache/Queue**: Redis
+- **Containerization:** Docker + Docker Compose
+- **Database:** Supabase
+- **Cache/Queue:** Redis
+
+## 📋 Prerequisites
+
+- Node.js 18 or higher
+- npm 9 or higher
+- Docker and Docker Compose (optional)
+- Supabase account
+- Stripe account
+- OpenAI API key (optional)
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### 1. Clone the Repository
 
-- Node.js >= 18.0.0
-- npm >= 9.0.0
-- Docker & Docker Compose (optional)
-- Supabase account
-- Stripe account
-- OpenAI API key
-
-### Installation
-
-1. **Clone the repository**
 ```bash
 git clone https://github.com/Ih205R/EduModern-Project.git
 cd EduModern-Project
 ```
 
-2. **Set up Backend**
+### 2. Set Up Environment Variables
+
+#### API Environment Variables
+Create `api/.env` from `api/.env.example`:
+
 ```bash
 cd api
 cp .env.example .env
-# Edit .env with your credentials
-npm install
-npm run prisma:generate
-npm run prisma:migrate
 ```
 
-3. **Set up Frontend**
+Update the following critical variables:
+- `DATABASE_URL` - Your Supabase PostgreSQL connection string
+- `SUPABASE_URL` - Your Supabase project URL
+- `SUPABASE_ANON_KEY` - Your Supabase anon key
+- `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key
+- `JWT_SECRET` - Generate a secure random string
+- `JWT_REFRESH_SECRET` - Generate another secure random string
+- `OPENAI_API_KEY` - Your OpenAI API key (optional)
+
+Stripe keys are pre-configured for testing.
+
+#### Frontend Environment Variables
+Create `frontend/.env.local` from `frontend/.env.local.example`:
+
 ```bash
-cd ../frontend
+cd frontend
 cp .env.local.example .env.local
-# Edit .env.local with your API URL
+```
+
+The Stripe publishable key is pre-configured.
+
+### 3. Install Dependencies
+
+#### API
+```bash
+cd api
+npm install
+npx prisma generate
+npx prisma migrate dev
+```
+
+#### Frontend
+```bash
+cd frontend
 npm install
 ```
 
-4. **Run with Docker (Recommended)**
+### 4. Start Development Servers
+
+#### Using Docker Compose (Recommended)
 ```bash
-# From project root
-docker-compose up -d
+docker-compose up
 ```
 
-Or run manually:
+This starts:
+- PostgreSQL on port 5432
+- Redis on port 6379
+- API on port 5000
+- Frontend on port 3000
 
+#### Manual Start
+
+Terminal 1 - API:
 ```bash
-# Terminal 1 - Backend
 cd api
 npm run dev
+```
 
-# Terminal 2 - Frontend
+Terminal 2 - Frontend:
+```bash
 cd frontend
 npm run dev
 ```
 
-5. **Access the application**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000
-- API Health: http://localhost:5000/health
+Terminal 3 - Redis (if not using Docker):
+```bash
+redis-server
+```
 
-## 📁 Project Structure
+### 5. Access the Application
+
+- **Frontend:** http://localhost:3000
+- **API:** http://localhost:5000
+- **API Health:** http://localhost:5000/health
+
+## 📖 Documentation
+
+- [API Documentation](./api/README.md) - Backend API details
+- [Frontend Documentation](./frontend/README.md) - Frontend architecture
+- [Deployment Guide](./DEPLOYMENT.md) - Production deployment
+
+## 🏗️ Project Structure
 
 ```
 EduModern-Project/
 ├── api/                    # Backend API
+│   ├── prisma/            # Database schema and migrations
 │   ├── src/
 │   │   ├── config/        # Configuration files
-│   │   ├── controllers/   # Request handlers
+│   │   ├── controllers/   # Route controllers
 │   │   ├── middlewares/   # Express middlewares
 │   │   ├── routes/        # API routes
 │   │   ├── services/      # Business logic
 │   │   ├── utils/         # Utility functions
 │   │   └── jobs/          # Background jobs
-│   ├── prisma/           # Database schema & migrations
-│   └── Dockerfile        # Backend container config
-├── frontend/              # Next.js frontend
-│   ├── app/              # Next.js 15 app directory
+│   ├── Dockerfile
+│   └── package.json
+│
+├── frontend/              # Next.js Frontend
+│   ├── app/              # App router pages
 │   ├── components/       # React components
-│   ├── lib/              # Libraries & utilities
-│   └── Dockerfile        # Frontend container config
-├── docker-compose.yml    # Multi-container orchestration
+│   ├── lib/              # Libraries and utilities
+│   ├── public/           # Static assets
+│   ├── Dockerfile
+│   └── package.json
+│
+├── docker-compose.yml    # Docker orchestration
 └── README.md            # This file
 ```
-
-## 🔧 Configuration
-
-### Required Environment Variables
-
-#### Backend (.env)
-```env
-# Supabase
-DATABASE_URL=postgresql://...
-SUPABASE_URL=https://...
-SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-
-# JWT
-JWT_SECRET=your-secret
-JWT_REFRESH_SECRET=your-refresh-secret
-
-# Stripe (Pre-configured)
-STRIPE_SECRET_KEY=sk_test_51SWBzFEL42zCNFEU0voMYBcUoKLJAuLZmg4JcC2HusHcORcX2WAEWJXO2X8J9hy8rA25lgeHDvR4qDW4of9s8nGS00vbVa17Cl
-
-# OpenAI
-OPENAI_API_KEY=sk-...
-
-# Email
-EMAIL_HOST=smtp.sendgrid.net
-EMAIL_USER=apikey
-EMAIL_PASSWORD=...
-
-# Redis
-REDIS_URL=redis://localhost:6379
-```
-
-#### Frontend (.env.local)
-```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51SWBzFEL42zCNFEUp50HI8EljXvr4NeXAMMcvzx6Atjetodvq79YHV47zxMATKIuDQ5Sg2kEp4HHOIzNj8B0gKT100pOXODelJ
-```
-
-## 📖 API Documentation
-
-Comprehensive API documentation is available in [api/README.md](./api/README.md)
 
 ## 🎨 Design System
 
 ### Colors
-- **Cream**: `#F6F5F3` - Background
-- **White**: `#FFFFFF` - Cards, surfaces
-- **Dark**: `#1E1E1E` - Text, headers
-- **Blue**: `#8DA7D9` - Primary actions
-- **Gray-blue**: `#D8DDE3` - Borders, secondary
-- **Lavender**: `#E2D4FF` - Accents, highlights
+- **Cream** (#F6F5F3) - Background
+- **White** (#FFFFFF) - Cards, surfaces
+- **Dark** (#1E1E1E) - Text, headers
+- **Blue** (#8DA7D9) - Primary actions
+- **Gray-blue** (#D8DDE3) - Borders, secondary
+- **Lavender** (#E2D4FF) - Accents, highlights
 
 ### Typography
-- **Headings**: Montserrat ExtraBold
-- **Subheadings**: Montserrat Medium
-- **Body**: Cormorant Garamond
+- **Headings:** Montserrat ExtraBold
+- **Subheadings:** Montserrat Medium
+- **Body:** Cormorant Garamond
+
+## 🔐 Security Features
+
+- JWT-based authentication with refresh tokens
+- Password hashing with bcrypt (12 rounds)
+- Rate limiting on all endpoints
+- CORS configuration
+- Helmet security headers
+- Input validation with Joi
+- SQL injection protection (Prisma)
+- XSS protection
+
+## 💳 Stripe Integration
+
+The platform is pre-configured with test Stripe keys:
+
+- **Publishable Key:** `pk_test_51SWBzFEL42zCNFEUp50HI8EljXvr4NeXAMMcvzx6Atjetodvq79YHV47zxMATKIuDQ5Sg2kEp4HHOIzNj8B0gKT100pOXODelJ`
+- **Secret Key:** `sk_test_51SWBzFEL42zCNFEU0voMYBcUoKLJAuLZmg4JcC2HusHcORcX2WAEWJXO2X8J9hy8rA25lgeHDvR4qDW4of9s8nGS00vbVa17Cl`
+
+Use test card: `4242 4242 4242 4242` with any future expiry and CVC.
 
 ## 🧪 Testing
 
+### API Tests
 ```bash
-# Backend tests
 cd api
 npm test
-
-# Frontend tests
-cd frontend
-npm test
+npm run test:watch
+npm run test:coverage
 ```
 
-## 🏗 Building for Production
-
+### Frontend Type Checking
 ```bash
-# Use docker-compose
-docker-compose up --build -d
+cd frontend
+npm run type-check
+npm run lint
 ```
 
-## 📦 Deployment
+## 📦 Building for Production
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
+### API
+```bash
+cd api
+npm run prisma:migrate
+npm start
+```
 
-## 🔒 Security
+### Frontend
+```bash
+cd frontend
+npm run build
+npm start
+```
 
-- JWT authentication with refresh tokens
-- Password hashing with bcrypt
-- Rate limiting on all endpoints
-- CORS protection
-- Helmet security headers
-- Input validation
-- SQL injection protection via Prisma
+### Docker Production Build
+```bash
+docker-compose -f docker-compose.prod.yml up --build
+```
 
-## 📝 License
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## 👥 Support
+
+For support, email support@edumodern.com or join our Slack channel.
+
+## 🙏 Acknowledgments
+
+- Supabase for database and storage
+- Stripe for payment processing
+- OpenAI for AI capabilities
+- Vercel for Next.js framework
+- All contributors and users
+
 ---
 
-Made with ❤️ by the EduModern team
+Built with ❤️ by the EduModern Team

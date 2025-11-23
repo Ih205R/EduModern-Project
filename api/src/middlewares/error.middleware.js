@@ -1,102 +1,82 @@
 const logger = require('../utils/logger');
+const { errorResponse, notFoundResponse, internalServerErrorResponse } = require('../utils/response');
 const env = require('../config/env');
 
 /**
- * Not found middleware
+ * Handle 404 errors
  */
-const notFound = (req, res, next) => {
-  const error = new Error(`Not Found - ${req.originalUrl}`);
-  res.status(404);
-  next(error);
-};
+function notFound(req, res, next) {
+  return notFoundResponse(res, `Route ${req.originalUrl} not found`);
+}
 
 /**
  * Global error handler
  */
-const errorHandler = (err, req, res, next) => {
-  // Log error
+function errorHandler(err, req, res, next) {
   logger.error('Error:', {
     message: err.message,
     stack: err.stack,
     url: req.originalUrl,
     method: req.method,
-    ip: req.ip,
   });
 
-  // Prisma error handling
-  if (err.code) {
+  // Prisma errors
+  if (err.name === 'PrismaClientKnownRequestError') {
     if (err.code === 'P2002') {
-      return res.status(409).json({
-        success: false,
-        message: 'A record with this unique field already exists',
-        error: env.NODE_ENV === 'development' ? err.message : undefined,
-      });
+      return errorResponse(res, 'A record with this value already exists', 409);
     }
-
     if (err.code === 'P2025') {
-      return res.status(404).json({
-        success: false,
-        message: 'Record not found',
-        error: env.NODE_ENV === 'development' ? err.message : undefined,
-      });
+      return notFoundResponse(res, 'Record not found');
     }
   }
 
-  // JWT error handling
+  // JWT errors
   if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid token',
-      error: env.NODE_ENV === 'development' ? err.message : undefined,
-    });
+    return errorResponse(res, 'Invalid token', 401);
   }
 
   if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Token expired',
-      error: env.NODE_ENV === 'development' ? err.message : undefined,
-    });
+    return errorResponse(res, 'Token expired', 401);
   }
 
-  // Validation error handling
+  // Validation errors
   if (err.name === 'ValidationError') {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: err.details || err.message,
-    });
+    return errorResponse(res, 'Validation failed', 422, err.details);
   }
 
-  // Multer file upload errors
+  // Multer errors
   if (err.name === 'MulterError') {
-    return res.status(400).json({
-      success: false,
-      message: 'File upload error',
-      error: err.message,
-    });
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return errorResponse(res, 'File too large', 400);
+    }
+    return errorResponse(res, 'File upload error', 400);
   }
 
   // Stripe errors
-  if (err.type && err.type.includes('Stripe')) {
-    return res.status(402).json({
-      success: false,
-      message: 'Payment processing error',
-      error: env.NODE_ENV === 'development' ? err.message : undefined,
-    });
+  if (err.type && err.type.startsWith('Stripe')) {
+    return errorResponse(res, 'Payment processing error', 400);
   }
 
-  // Default error response
-  const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-  
-  res.status(statusCode).json({
-    success: false,
-    message: err.message || 'Internal server error',
-    error: env.NODE_ENV === 'development' ? err.stack : undefined,
-  });
-};
+  // Default error
+  const statusCode = err.statusCode || 500;
+  const message = env.NODE_ENV === 'production' 
+    ? 'Internal server error' 
+    : err.message;
+
+  return errorResponse(res, message, statusCode);
+}
+
+/**
+ * Async handler wrapper
+ */
+function asyncHandler(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
 
 module.exports = {
   notFound,
   errorHandler,
+  asyncHandler,
 };

@@ -5,7 +5,7 @@ import { Container } from '@/components/layout/Container';
 import { WorkbookGrid } from '@/components/workbooks/WorkbookGrid';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { workbooksApi } from '@/lib/api/workbooks';
+import { workbooksAPI } from '@/lib/api/workbooks';
 import { Workbook } from '@/lib/types';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
@@ -29,15 +29,15 @@ export default function WorkbooksPage() {
   async function loadWorkbooks() {
     try {
       setLoading(true);
-      const response = await workbooksApi.list({
+      const response = await workbooksAPI.getAll({
         page,
         limit,
         search: search || undefined,
-        niche: niche || undefined,
+        category: niche || undefined,
         sortBy,
       });
-      setWorkbooks(response.data);
-      setTotal(response.pagination.total);
+      setWorkbooks(response.data.workbooks);
+      setTotal(response.data.pagination.total);
     } catch (error) {
       console.error('Failed to load workbooks:', error);
     } finally {

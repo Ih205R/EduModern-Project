@@ -18,6 +18,7 @@ export function WorkbookCard({ workbook }: WorkbookCardProps) {
             <Image
               src={workbook.coverUrl}
               alt={workbook.title}
+              aria-label={`Cover image for ${workbook.title}`}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
             />

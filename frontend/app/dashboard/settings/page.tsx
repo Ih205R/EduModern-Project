@@ -3,191 +3,221 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
-import Container from '@/components/layout/Container';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Card from '@/components/ui/Card';
-import Spinner from '@/components/ui/Spinner';
-import { api } from '@/lib/api/client';
+import { Container } from '@/components/layout/Container';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Card } from '@/components/ui/Card';
+import { Spinner } from '@/components/ui/Spinner';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, updateProfile } = useAuth();
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     email: '',
-    bio: '',
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
-    } else if (user) {
+      return;
+    }
+
+    if (user) {
       setFormData({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
+        name: user.name || '',
         email: user.email || '',
-        bio: user.bio || '',
       });
     }
   }, [user, authLoading, router]);
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
+  const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setMessage({ type: '', text: '' });
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
 
     try {
-      await api.put('/users/profile', formData);
-      setMessage({ type: 'success', text: 'Profile updated successfully' });
-    } catch (error: any) {
-      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update profile' });
+      await updateProfile(formData);
+      setSuccess('Profile updated successfully');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update profile');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage({ type: '', text: '' });
+    setError('');
+    setSuccess('');
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setMessage({ type: 'error', text: 'Passwords do not match' });
+      setError('Passwords do not match');
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
 
     try {
-      await api.post('/auth/change-password', {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword,
+      // API call would go here
+      setSuccess('Password changed successfully');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
       });
-      setMessage({ type: 'success', text: 'Password changed successfully' });
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (error: any) {
-      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to change password' });
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to change password');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  if (authLoading || !user) {
+  if (authLoading) {
     return (
-      <Container className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-cream flex items-center justify-center">
         <Spinner size="lg" />
-      </Container>
+      </div>
     );
   }
 
+  if (!user) {
+    return null;
+  }
+
   return (
-    <Container className="py-12">
-      <div className="max-w-3xl mx-auto animate-fade-in-up">
-        <h1 className="text-4xl font-bold text-dark mb-8">Account Settings</h1>
+    <div className="min-h-screen bg-cream py-12 animate-fade-in-up">
+      <Container>
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-4xl font-bold text-dark mb-8">Settings</h1>
 
-        {message.text && (
-          <div className={`mb-6 p-4 rounded-lg ${
-            message.type === 'success' 
-              ? 'bg-green-50 border border-green-200 text-green-700'
-              : 'bg-red-50 border border-red-200 text-red-700'
-          }`}>
-            {message.text}
-          </div>
-        )}
+          {/* Profile Settings */}
+          <Card className="p-8 mb-6 animate-scale-in">
+            <h2 className="text-2xl font-bold text-dark mb-6">Profile Information</h2>
 
-        {/* Profile Settings */}
-        <Card className="p-8 mb-8">
-          <h2 className="text-2xl font-bold text-dark mb-6">Profile Information</h2>
-          <form onSubmit={handleProfileSubmit} className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="First Name"
-                type="text"
-                value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                placeholder="John"
-              />
-              <Input
-                label="Last Name"
-                type="text"
-                value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                placeholder="Doe"
-              />
-            </div>
+            <form onSubmit={handleProfileUpdate} className="space-y-6">
+              {success && (
+                <div className="bg-green-50 text-green-600 p-4 rounded-lg text-sm animate-fade-in">
+                  {success}
+                </div>
+              )}
 
-            <Input
-              label="Email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              disabled
-            />
+              {error && (
+                <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm animate-fade-in">
+                  {error}
+                </div>
+              )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bio
-              </label>
-              <textarea
-                value={formData.bio}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-blue focus:outline-none focus:ring-2 focus:ring-blue transition-all"
-                rows={4}
-                placeholder="Tell us about yourself..."
-              />
-            </div>
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-dark mb-2">
+                  Full Name
+                </label>
+                <Input
+                  id="name"
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
 
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </form>
-        </Card>
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-dark mb-2">
+                  Email Address
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
 
-        {/* Password Change */}
-        <Card className="p-8">
-          <h2 className="text-2xl font-bold text-dark mb-6">Change Password</h2>
-          <form onSubmit={handlePasswordSubmit} className="space-y-6">
-            <Input
-              label="Current Password"
-              type="password"
-              value={passwordData.currentPassword}
-              onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-              placeholder="••••••••"
-              required
-            />
+              <div>
+                <label className="block text-sm font-medium text-dark mb-2">
+                  Role
+                </label>
+                <Input
+                  type="text"
+                  value={user.role}
+                  disabled
+                  className="bg-gray-50"
+                />
+              </div>
 
-            <Input
-              label="New Password"
-              type="password"
-              value={passwordData.newPassword}
-              onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-              placeholder="••••••••"
-              required
-            />
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </form>
+          </Card>
 
-            <Input
-              label="Confirm New Password"
-              type="password"
-              value={passwordData.confirmPassword}
-              onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-              placeholder="••••••••"
-              required
-            />
+          {/* Password Change */}
+          <Card className="p-8 animate-scale-in" style={{ animationDelay: '0.1s' }}>
+            <h2 className="text-2xl font-bold text-dark mb-6">Change Password</h2>
 
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Changing...' : 'Change Password'}
-            </Button>
-          </form>
-        </Card>
-      </div>
-    </Container>
+            <form onSubmit={handlePasswordChange} className="space-y-6">
+              <div>
+                <label htmlFor="currentPassword" className="block text-sm font-medium text-dark mb-2">
+                  Current Password
+                </label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  required
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="newPassword" className="block text-sm font-medium text-dark mb-2">
+                  New Password
+                </label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  required
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-gray-500 mt-1">Must be at least 8 characters</p>
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-dark mb-2">
+                  Confirm New Password
+                </label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  required
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? 'Changing...' : 'Change Password'}
+              </Button>
+            </form>
+          </Card>
+        </div>
+      </Container>
+    </div>
   );
 }

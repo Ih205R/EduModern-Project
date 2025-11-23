@@ -1,11 +1,12 @@
 const { verifyAccessToken } = require('../utils/jwt');
-const { unauthorizedResponse, forbiddenResponse } = require('../utils/response');
 const { prisma } = require('../config/db');
+const { unauthorizedResponse, forbiddenResponse } = require('../utils/response');
+const logger = require('../utils/logger');
 
 /**
- * Authenticate user via JWT token
+ * Verify JWT token and attach user to request
  */
-const authenticate = async (req, res, next) => {
+async function authenticate(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
@@ -15,43 +16,46 @@ const authenticate = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
 
-    try {
-      const decoded = verifyAccessToken(token);
-      
-      // Fetch user from database
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.userId },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          emailVerified: true,
-        },
-      });
+    // Verify token
+    const decoded = verifyAccessToken(token);
 
-      if (!user) {
-        return unauthorizedResponse(res, 'User not found');
-      }
+    // Get user from database
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isVerified: true,
+        avatar: true,
+      },
+    });
 
-      req.user = user;
-      next();
-    } catch (error) {
-      return unauthorizedResponse(res, 'Invalid or expired token');
+    if (!user) {
+      return unauthorizedResponse(res, 'User not found');
     }
+
+    if (!user.isVerified) {
+      return unauthorizedResponse(res, 'Please verify your email');
+    }
+
+    // Attach user to request
+    req.user = user;
+    next();
   } catch (error) {
-    next(error);
+    logger.error('Authentication error:', error);
+    return unauthorizedResponse(res, 'Invalid or expired token');
   }
-};
+}
 
 /**
- * Check if user has specific role
+ * Check if user has required role
  */
-const authorize = (...roles) => {
+function authorize(...roles) {
   return (req, res, next) => {
     if (!req.user) {
-      return unauthorizedResponse(res, 'Authentication required');
+      return unauthorizedResponse(res, 'Not authenticated');
     }
 
     if (!roles.includes(req.user.role)) {
@@ -60,45 +64,44 @@ const authorize = (...roles) => {
 
     next();
   };
-};
+}
 
 /**
- * Optional authentication - attaches user if token is valid, but doesn't require it
+ * Optional authentication (doesn't fail if no token)
  */
-const optionalAuth = async (req, res, next) => {
+async function optionalAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next();
+    }
 
-      try {
-        const decoded = verifyAccessToken(token);
-        const user = await prisma.user.findUnique({
-          where: { id: decoded.userId },
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-            emailVerified: true,
-          },
-        });
+    const token = authHeader.split(' ')[1];
+    const decoded = verifyAccessToken(token);
 
-        if (user) {
-          req.user = user;
-        }
-      } catch (error) {
-        // Invalid token, but that's okay for optional auth
-      }
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isVerified: true,
+        avatar: true,
+      },
+    });
+
+    if (user && user.isVerified) {
+      req.user = user;
     }
 
     next();
   } catch (error) {
-    next(error);
+    // Silently fail for optional auth
+    next();
   }
-};
+}
 
 module.exports = {
   authenticate,

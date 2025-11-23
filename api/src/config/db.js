@@ -1,65 +1,54 @@
 const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
 
-// Create Prisma client instance with logging
 const prisma = new PrismaClient({
-  log: [
-    {
-      emit: 'event',
-      level: 'query',
-    },
-    {
-      emit: 'event',
-      level: 'error',
-    },
-    {
-      emit: 'event',
-      level: 'info',
-    },
-    {
-      emit: 'event',
-      level: 'warn',
-    },
-  ],
+  log: process.env.NODE_ENV === 'development' 
+    ? ['query', 'error', 'warn'] 
+    : ['error'],
 });
 
-// Log queries in development
-if (process.env.NODE_ENV === 'development') {
-  prisma.$on('query', (e) => {
-    logger.debug('Query: ' + e.query);
-    logger.debug('Duration: ' + e.duration + 'ms');
-  });
-}
-
-// Log errors
-prisma.$on('error', (e) => {
-  logger.error('Prisma Error:', e);
-});
-
-// Log warnings
-prisma.$on('warn', (e) => {
-  logger.warn('Prisma Warning:', e);
-});
-
-// Test database connection
-const connectDB = async () => {
+/**
+ * Connect to the database
+ */
+async function connectDatabase() {
   try {
     await prisma.$connect();
-    logger.info('✅ Database connected successfully (Supabase PostgreSQL)');
+    logger.info('✅ Database connected successfully');
   } catch (error) {
     logger.error('❌ Database connection failed:', error);
-    process.exit(1);
+    throw error;
   }
-};
+}
 
-// Graceful shutdown
-const disconnectDB = async () => {
-  await prisma.$disconnect();
-  logger.info('Database disconnected');
-};
+/**
+ * Disconnect from the database
+ */
+async function disconnectDatabase() {
+  try {
+    await prisma.$disconnect();
+    logger.info('Database disconnected');
+  } catch (error) {
+    logger.error('Error disconnecting from database:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check database connection health
+ */
+async function checkDatabaseHealth() {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return true;
+  } catch (error) {
+    logger.error('Database health check failed:', error);
+    return false;
+  }
+}
 
 module.exports = {
   prisma,
-  connectDB,
-  disconnectDB,
+  connectDatabase,
+  disconnectDatabase,
+  checkDatabaseHealth,
 };

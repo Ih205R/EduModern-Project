@@ -1,59 +1,62 @@
 const jwt = require('jsonwebtoken');
 const env = require('../config/env');
+const logger = require('./logger');
 
 /**
  * Generate access token
  */
-const generateAccessToken = (payload) => {
+function generateAccessToken(payload) {
   return jwt.sign(payload, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN,
-    issuer: 'edumodern-api',
+    expiresIn: env.JWT_EXPIRES_IN || '15m',
   });
-};
+}
 
 /**
  * Generate refresh token
  */
-const generateRefreshToken = (payload) => {
+function generateRefreshToken(payload) {
   return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
-    expiresIn: env.JWT_REFRESH_EXPIRES_IN,
-    issuer: 'edumodern-api',
+    expiresIn: env.JWT_REFRESH_EXPIRES_IN || '7d',
   });
-};
+}
 
 /**
  * Verify access token
  */
-const verifyAccessToken = (token) => {
+function verifyAccessToken(token) {
   try {
     return jwt.verify(token, env.JWT_SECRET);
   } catch (error) {
-    throw new Error('Invalid or expired access token');
+    logger.error('Access token verification failed:', error.message);
+    throw error;
   }
-};
+}
 
 /**
  * Verify refresh token
  */
-const verifyRefreshToken = (token) => {
+function verifyRefreshToken(token) {
   try {
     return jwt.verify(token, env.JWT_REFRESH_SECRET);
   } catch (error) {
-    throw new Error('Invalid or expired refresh token');
+    logger.error('Refresh token verification failed:', error.message);
+    throw error;
   }
-};
+}
 
 /**
- * Decode token without verification
+ * Generate token pair (access + refresh)
  */
-const decodeToken = (token) => {
-  return jwt.decode(token);
-};
+function generateTokenPair(payload) {
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+  return { accessToken, refreshToken };
+}
 
 module.exports = {
   generateAccessToken,
   generateRefreshToken,
   verifyAccessToken,
   verifyRefreshToken,
-  decodeToken,
+  generateTokenPair,
 };

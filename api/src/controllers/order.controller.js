@@ -1,99 +1,391 @@
-const orderService = require('../services/order.service');
-const { successResponse, errorResponse, paginatedResponse } = require('../utils/response');
+const { prisma } = require('../config/db');
+const stripe = require('../config/stripe');
+const { generateOrderNumber } = require('../utils/crypto');
+const { sendOrderConfirmationEmail } = require('../services/email.service');
+const { generateSignedDownloadUrl } = require('../services/storage.service');
+const {
+  successResponse,
+  createdResponse,
+  badRequestResponse,
+  notFoundResponse,
+  forbiddenResponse,
+} = require('../utils/response');
 const logger = require('../utils/logger');
+const env = require('../config/env');
 
 /**
  * Create checkout session
  */
-const createCheckoutSession = async (req, res, next) => {
+async function createCheckoutSession(req, res) {
   try {
-    const { workbookIds } = req.body;
-    
-    if (!workbookIds || !Array.isArray(workbookIds) || workbookIds.length === 0) {
-      return errorResponse(res, 'Workbook IDs are required', 400);
+    const { workbookId } = req.body;
+
+    // Get workbook
+    const workbook = await prisma.workbook.findUnique({
+      where: { id: workbookId },
+      include: {
+        author: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!workbook) {
+      return notFoundResponse(res, 'Workbook not found');
     }
 
-    const session = await orderService.createCheckoutSession(req.user.id, workbookIds);
-    
-    return successResponse(res, session, 'Checkout session created successfully');
+    if (!workbook.isPublished) {
+      return badRequestResponse(res, 'This workbook is not available for purchase');
+    }
+
+    // Check if user already purchased
+    const existingOrder = await prisma.order.findFirst({
+      where: {
+        userId: req.user.id,
+        workbookId: workbook.id,
+        status: 'COMPLETED',
+      },
+    });
+
+    if (existingOrder) {
+      return badRequestResponse(res, 'You have already purchased this workbook');
+    }
+
+    // Create order
+    const orderNumber = generateOrderNumber();
+    const order = await prisma.order.create({
+      data: {
+        orderNumber,
+        userId: req.user.id,
+        workbookId: workbook.id,
+        amount: workbook.price,
+        currency: env.STRIPE_CURRENCY || 'eur',
+        status: 'PENDING',
+      },
+    });
+
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: env.STRIPE_CURRENCY || 'eur',
+            product_data: {
+              name: workbook.title,
+              description: workbook.description,
+              images: workbook.coverImage ? [workbook.coverImage] : [],
+            },
+            unit_amount: Math.round(parseFloat(workbook.price) * 100), // Convert to cents
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${env.FRONTEND_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${env.FRONTEND_URL}/checkout/cancel`,
+      client_reference_id: order.id,
+      customer_email: req.user.email,
+      metadata: {
+        orderId: order.id,
+        userId: req.user.id,
+        workbookId: workbook.id,
+      },
+    });
+
+    // Update order with session ID
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { stripeSessionId: session.id },
+    });
+
+    logger.info(`Checkout session created: ${session.id} for order ${orderNumber}`);
+
+    return successResponse(res, {
+      sessionId: session.id,
+      sessionUrl: session.url,
+      orderId: order.id,
+    }, 'Checkout session created');
   } catch (error) {
     logger.error('Create checkout session error:', error);
-    return errorResponse(res, error.message, 400);
+    throw error;
   }
-};
+}
 
 /**
  * Handle Stripe webhook
  */
-const handleWebhook = async (req, res, next) => {
+async function handleWebhook(req, res) {
   try {
     const sig = req.headers['stripe-signature'];
-    
-    await orderService.handleStripeWebhook(req.body, sig);
-    
-    return res.status(200).json({ received: true });
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      logger.error('Webhook signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutComplete(event.data.object);
+        break;
+      case 'payment_intent.succeeded':
+        await handlePaymentSucceeded(event.data.object);
+        break;
+      case 'payment_intent.payment_failed':
+        await handlePaymentFailed(event.data.object);
+        break;
+      default:
+        logger.info(`Unhandled event type: ${event.type}`);
+    }
+
+    res.json({ received: true });
   } catch (error) {
-    logger.error('Webhook error:', error);
-    return res.status(400).json({ error: error.message });
+    logger.error('Webhook handler error:', error);
+    res.status(500).json({ error: 'Webhook handler failed' });
   }
-};
+}
 
 /**
- * Get user orders
+ * Handle checkout session completed
  */
-const getUserOrders = async (req, res, next) => {
+async function handleCheckoutComplete(session) {
   try {
-    const { page = 1, limit = 10 } = req.query;
-    const result = await orderService.getUserOrders(req.user.id, parseInt(page), parseInt(limit));
-    
-    return paginatedResponse(
-      res,
-      result.orders,
-      page,
-      limit,
-      result.total,
-      'Orders retrieved successfully'
+    const orderId = session.metadata.orderId;
+
+    if (!orderId) {
+      logger.error('Order ID not found in session metadata');
+      return;
+    }
+
+    // Update order
+    const order = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'COMPLETED',
+        stripePaymentIntent: session.payment_intent,
+      },
+      include: {
+        workbook: true,
+        user: true,
+      },
+    });
+
+    // Update workbook purchase count
+    await prisma.workbook.update({
+      where: { id: order.workbookId },
+      data: { purchaseCount: { increment: 1 } },
+    });
+
+    // Generate download URL
+    const downloadExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    let downloadUrl = null;
+
+    if (order.workbook.pdfUrl) {
+      downloadUrl = await generateSignedDownloadUrl(order.workbook.pdfUrl, 24 * 60 * 60);
+    }
+
+    // Update order with download URL
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        downloadUrl,
+        downloadExpiry,
+      },
+    });
+
+    // Send confirmation email
+    await sendOrderConfirmationEmail(
+      order.user.email,
+      order.user.name,
+      order.workbook.title,
+      order.orderNumber,
+      downloadUrl
     );
+
+    logger.info(`Order completed: ${order.orderNumber}`);
   } catch (error) {
-    logger.error('Get user orders error:', error);
-    return errorResponse(res, error.message, 400);
+    logger.error('Handle checkout complete error:', error);
   }
-};
+}
+
+/**
+ * Handle payment succeeded
+ */
+async function handlePaymentSucceeded(paymentIntent) {
+  try {
+    logger.info(`Payment succeeded: ${paymentIntent.id}`);
+    // Additional logic if needed
+  } catch (error) {
+    logger.error('Handle payment succeeded error:', error);
+  }
+}
+
+/**
+ * Handle payment failed
+ */
+async function handlePaymentFailed(paymentIntent) {
+  try {
+    logger.info(`Payment failed: ${paymentIntent.id}`);
+
+    // Find order by payment intent
+    const order = await prisma.order.findFirst({
+      where: { stripePaymentIntent: paymentIntent.id },
+    });
+
+    if (order) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { status: 'FAILED' },
+      });
+    }
+  } catch (error) {
+    logger.error('Handle payment failed error:', error);
+  }
+}
 
 /**
  * Get order by ID
  */
-const getOrderById = async (req, res, next) => {
+async function getOrderById(req, res) {
   try {
     const { id } = req.params;
-    const order = await orderService.getOrderById(id, req.user.id);
-    
-    return successResponse(res, order, 'Order retrieved successfully');
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        workbook: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            coverImage: true,
+            price: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return notFoundResponse(res, 'Order not found');
+    }
+
+    // Check if user owns the order
+    if (order.userId !== req.user.id && req.user.role !== 'ADMIN') {
+      return forbiddenResponse(res, 'You do not have permission to view this order');
+    }
+
+    return successResponse(res, { order });
   } catch (error) {
-    logger.error('Get order error:', error);
-    return errorResponse(res, error.message, 404);
+    logger.error('Get order by ID error:', error);
+    throw error;
   }
-};
+}
 
 /**
- * Generate download link
+ * Get order by session ID
  */
-const generateDownloadLink = async (req, res, next) => {
+async function getOrderBySession(req, res) {
   try {
-    const { orderId, workbookId } = req.params;
-    const downloadUrl = await orderService.generateDownloadLink(orderId, workbookId, req.user.id);
-    
-    return successResponse(res, { downloadUrl }, 'Download link generated successfully');
+    const { sessionId } = req.params;
+
+    const order = await prisma.order.findFirst({
+      where: { stripeSessionId: sessionId },
+      include: {
+        workbook: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            coverImage: true,
+            price: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return notFoundResponse(res, 'Order not found');
+    }
+
+    // Check if user owns the order
+    if (order.userId !== req.user.id && req.user.role !== 'ADMIN') {
+      return forbiddenResponse(res, 'You do not have permission to view this order');
+    }
+
+    return successResponse(res, { order });
   } catch (error) {
-    logger.error('Generate download link error:', error);
-    return errorResponse(res, error.message, 400);
+    logger.error('Get order by session error:', error);
+    throw error;
   }
-};
+}
+
+/**
+ * Get download link for purchased workbook
+ */
+async function getDownloadLink(req, res) {
+  try {
+    const { orderId } = req.params;
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        workbook: true,
+      },
+    });
+
+    if (!order) {
+      return notFoundResponse(res, 'Order not found');
+    }
+
+    if (order.userId !== req.user.id) {
+      return forbiddenResponse(res, 'You do not have permission to download this workbook');
+    }
+
+    if (order.status !== 'COMPLETED') {
+      return badRequestResponse(res, 'Order is not completed');
+    }
+
+    if (!order.workbook.pdfUrl) {
+      return badRequestResponse(res, 'PDF is not yet available');
+    }
+
+    // Check download limits
+    if (order.downloadCount >= order.maxDownloads) {
+      return badRequestResponse(res, 'Download limit exceeded');
+    }
+
+    // Generate signed URL
+    const downloadUrl = await generateSignedDownloadUrl(order.workbook.pdfUrl, 60 * 60); // 1 hour
+
+    // Increment download count
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { downloadCount: { increment: 1 } },
+    });
+
+    logger.info(`Download link generated for order: ${order.orderNumber}`);
+
+    return successResponse(res, { downloadUrl });
+  } catch (error) {
+    logger.error('Get download link error:', error);
+    throw error;
+  }
+}
 
 module.exports = {
   createCheckoutSession,
   handleWebhook,
-  getUserOrders,
   getOrderById,
-  generateDownloadLink,
+  getOrderBySession,
+  getDownloadLink,
 };
